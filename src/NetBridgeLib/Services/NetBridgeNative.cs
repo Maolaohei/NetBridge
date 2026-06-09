@@ -12,7 +12,7 @@ public static class NetBridgeNative
         var assemblyPath = AppContext.BaseDirectory;
         if (!string.IsNullOrEmpty(assemblyPath))
         {
-            var dllPath = Path.Combine(assemblyPath, "Assets", DllName);
+            var dllPath = Path.Combine(assemblyPath, "bin", "NetBridge", DllName);
             if (File.Exists(dllPath))
             {
                 NativeLibrary.Load(dllPath);
