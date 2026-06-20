@@ -156,18 +156,24 @@ public class NetBridgeService : IDisposable
         NetBridgeNative.ProxyBridge_SetTrafficLoggingEnabled(enable);
     }
 
-    private static NetRuleAction ParseRuleAction(string action)
+    private static NetRuleAction ParseRuleAction(string? action)
     {
-        return action.Equals("DIRECT", StringComparison.CurrentCultureIgnoreCase) ? NetRuleAction.DIRECT :
-               action.Equals("BLOCK", StringComparison.CurrentCultureIgnoreCase) ? NetRuleAction.BLOCK :
-               NetRuleAction.PROXY;
+        return action?.ToUpperInvariant() switch
+        {
+            "DIRECT" => NetRuleAction.DIRECT,
+            "BLOCK" => NetRuleAction.BLOCK,
+            _ => NetRuleAction.PROXY
+        };
     }
 
-    private static NetRuleProtocol ParseRuleProtocol(string protocol)
+    private static NetRuleProtocol ParseRuleProtocol(string? protocol)
     {
-        return protocol.Equals("UDP", StringComparison.CurrentCultureIgnoreCase) ? NetRuleProtocol.UDP :
-               protocol.Equals("BOTH", StringComparison.CurrentCultureIgnoreCase) || protocol.Equals("TCP+UDP", StringComparison.CurrentCultureIgnoreCase) ? NetRuleProtocol.BOTH :
-               NetRuleProtocol.TCP;
+        return protocol?.ToUpperInvariant() switch
+        {
+            "UDP" => NetRuleProtocol.UDP,
+            "BOTH" or "TCP+UDP" => NetRuleProtocol.BOTH,
+            _ => NetRuleProtocol.TCP
+        };
     }
 
     public void Dispose()
