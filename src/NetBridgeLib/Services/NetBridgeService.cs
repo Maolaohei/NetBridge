@@ -102,14 +102,8 @@ public class NetBridgeService : IDisposable
 
     public uint AddRule(string processName, string targetHosts, string targetPorts, string protocol, string action, uint proxyConfigId = 0)
     {
-        var ruleAction = action.Equals("DIRECT", StringComparison.CurrentCultureIgnoreCase) ? NetRuleAction.DIRECT :
-                         action.Equals("BLOCK", StringComparison.CurrentCultureIgnoreCase) ? NetRuleAction.BLOCK :
-                         NetRuleAction.PROXY;
-
-        var ruleProtocol = protocol.Equals("UDP", StringComparison.CurrentCultureIgnoreCase) ? NetRuleProtocol.UDP :
-                           protocol.Equals("BOTH", StringComparison.CurrentCultureIgnoreCase) ? NetRuleProtocol.BOTH :
-                           protocol.Equals("TCP+UDP", StringComparison.CurrentCultureIgnoreCase) ? NetRuleProtocol.BOTH :
-                           NetRuleProtocol.TCP;
+        var ruleAction = ParseRuleAction(action);
+        var ruleProtocol = ParseRuleProtocol(protocol);
 
         return NetBridgeNative.ProxyBridge_AddRule(processName, targetHosts, targetPorts, ruleProtocol, ruleAction, proxyConfigId);
     }
@@ -131,14 +125,8 @@ public class NetBridgeService : IDisposable
 
     public bool EditRule(uint ruleId, string processName, string targetHosts, string targetPorts, string protocol, string action, uint proxyConfigId = 0)
     {
-        var ruleAction = action.Equals("DIRECT", StringComparison.CurrentCultureIgnoreCase) ? NetRuleAction.DIRECT :
-                         action.Equals("BLOCK", StringComparison.CurrentCultureIgnoreCase) ? NetRuleAction.BLOCK :
-                         NetRuleAction.PROXY;
-
-        var ruleProtocol = protocol.Equals("UDP", StringComparison.CurrentCultureIgnoreCase) ? NetRuleProtocol.UDP :
-                           protocol.Equals("BOTH", StringComparison.CurrentCultureIgnoreCase) ? NetRuleProtocol.BOTH :
-                           protocol.Equals("TCP+UDP", StringComparison.CurrentCultureIgnoreCase) ? NetRuleProtocol.BOTH :
-                           NetRuleProtocol.TCP;
+        var ruleAction = ParseRuleAction(action);
+        var ruleProtocol = ParseRuleProtocol(protocol);
 
         return NetBridgeNative.ProxyBridge_EditRule(ruleId, processName, targetHosts, targetPorts, ruleProtocol, ruleAction, proxyConfigId);
     }
@@ -166,6 +154,20 @@ public class NetBridgeService : IDisposable
     public static void SetTrafficLoggingEnabled(bool enable)
     {
         NetBridgeNative.ProxyBridge_SetTrafficLoggingEnabled(enable);
+    }
+
+    private static NetRuleAction ParseRuleAction(string action)
+    {
+        return action.Equals("DIRECT", StringComparison.CurrentCultureIgnoreCase) ? NetRuleAction.DIRECT :
+               action.Equals("BLOCK", StringComparison.CurrentCultureIgnoreCase) ? NetRuleAction.BLOCK :
+               NetRuleAction.PROXY;
+    }
+
+    private static NetRuleProtocol ParseRuleProtocol(string protocol)
+    {
+        return protocol.Equals("UDP", StringComparison.CurrentCultureIgnoreCase) ? NetRuleProtocol.UDP :
+               protocol.Equals("BOTH", StringComparison.CurrentCultureIgnoreCase) || protocol.Equals("TCP+UDP", StringComparison.CurrentCultureIgnoreCase) ? NetRuleProtocol.BOTH :
+               NetRuleProtocol.TCP;
     }
 
     public void Dispose()
