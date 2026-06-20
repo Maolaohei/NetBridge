@@ -13,9 +13,20 @@ public static class NetBridgeNative
         if (!string.IsNullOrEmpty(assemblyPath))
         {
             var dllPath = Path.Combine(assemblyPath, "bin", "NetBridge", DllName);
-            if (File.Exists(dllPath))
+            try
             {
-                NativeLibrary.Load(dllPath);
+                if (File.Exists(dllPath))
+                {
+                    NativeLibrary.Load(dllPath);
+                }
+                else
+                {
+                    Console.Error.WriteLine($"[NetBridge] DLL not found: {dllPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[NetBridge] Failed to load DLL: {ex.Message}");
             }
         }
     }

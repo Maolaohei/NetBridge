@@ -7,10 +7,13 @@ public class NetBridgeService : IDisposable
     private readonly NetBridgeNative.LogCallback? _logCallback;
     private readonly NetBridgeNative.ConnectionCallback? _connectionCallback;
     private bool _isRunning;
+    private bool _disposed;
 
     public event Action<string>? LogReceived;
 
     public event Action<string, uint, string, ushort, string>? ConnectionReceived;
+
+    public bool IsRunning => _isRunning;
 
     public NetBridgeService()
     {
@@ -23,12 +26,30 @@ public class NetBridgeService : IDisposable
 
     private void OnLogReceived(string message)
     {
-        LogReceived?.Invoke(message);
+        if (_disposed) return;
+
+        try
+        {
+            LogReceived?.Invoke(message);
+        }
+        catch
+        {
+            // Callback may be on non-UI thread, subscriber handles marshaling
+        }
     }
 
     private void OnConnectionReceived(string processName, uint pid, string destIp, ushort destPort, string proxyInfo)
     {
-        ConnectionReceived?.Invoke(processName, pid, destIp, destPort, proxyInfo);
+        if (_disposed) return;
+
+        try
+        {
+            ConnectionReceived?.Invoke(processName, pid, destIp, destPort, proxyInfo);
+        }
+        catch
+        {
+            // Callback may be on non-UI thread, subscriber handles marshaling
+        }
     }
 
     public bool Start()
@@ -149,10 +170,17 @@ public class NetBridgeService : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+
         if (_isRunning)
         {
-            Stop(); // removing the threads, C code handle close no need to manually handle drives
+            Stop();
         }
+
+        LogReceived = null;
+        ConnectionReceived = null;
+
         GC.SuppressFinalize(this);
     }
 }
