@@ -2,7 +2,7 @@ namespace NetBridge.Desktop;
 
 internal class Program
 {
-    public static EventWaitHandle ProgramStarted;
+    private static Mutex? _mutex;
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
@@ -10,9 +10,9 @@ internal class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        if (OnStartup(args) == false)
+        if (!OnStartup(args))
         {
-            Environment.Exit(0);
+            Environment.Exit(1);
             return;
         }
 
@@ -20,9 +20,9 @@ internal class Program
             .StartWithClassicDesktopLifetime(args);
     }
 
-    private static bool OnStartup(string[]? Args)
+    private static bool OnStartup(string[]? args)
     {
-        _ = new Mutex(true, "NetBridge.Desktop", out var bOnlyOneInstance);
+        _mutex = new Mutex(true, "NetBridge.Desktop", out var bOnlyOneInstance);
         if (!bOnlyOneInstance)
         {
             return false;

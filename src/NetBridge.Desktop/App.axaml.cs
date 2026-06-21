@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using NetBridge.Desktop.ViewModels;
 using NetBridge.Desktop.Views;
 
 namespace NetBridge.Desktop;
@@ -39,9 +40,31 @@ public partial class App : Application
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
+        if (sender is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            try
+            {
+                if (desktop.MainWindow?.DataContext is MainWindowViewModel vm)
+                {
+                    if (vm.IsProxyRunning)
+                    {
+                        vm.Stop();
+                    }
+                    vm.ProxyService?.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"OnExit cleanup error: {ex.Message}");
+            }
+        }
     }
 
-    private async void MenuExit_Click(object? sender, EventArgs e)
+    private void MenuExit_Click(object? sender, EventArgs e)
     {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
     }
 }

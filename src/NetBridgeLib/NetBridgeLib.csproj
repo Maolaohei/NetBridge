@@ -5,21 +5,28 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <None Update="Assets\ProxyBridgeCore.dll">
+        <InternalsVisibleTo Include="NetBridgeLib.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="Assets\ProxyBridgeCore.dll">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
             <TargetPath>bin\NetBridge\ProxyBridgeCore.dll</TargetPath>
-        </None>
-      <None Update="Assets\WinDivert.dll">
+            <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        </Content>
+      <Content Include="Assets\WinDivert.dll">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         <TargetPath>bin\NetBridge\WinDivert.dll</TargetPath>
-      </None>
-      <None Update="Assets\WinDivert64.sys">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </Content>
+      <Content Include="Assets\WinDivert64.sys">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         <TargetPath>bin\NetBridge\WinDivert64.sys</TargetPath>
-      </None>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </Content>
     </ItemGroup>
 
 </Project>

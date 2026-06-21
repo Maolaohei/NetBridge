@@ -24,6 +24,11 @@ public class MainWindowViewModel : ReactiveObject
     [Reactive]
     public string RuleProcessName { get; set; } = "Chrome.exe";
 
+    [Reactive]
+    public string RuleProtocol { get; set; } = "TCP";
+
+    public IReadOnlyList<string> ProtocolOptions { get; } = ["TCP", "UDP", "BOTH"];
+
     public bool IsProxyRunning { get; set; }
 
     [Reactive]
@@ -34,7 +39,7 @@ public class MainWindowViewModel : ReactiveObject
 
     public MainWindowViewModel()
     {
-        ToggleProxyCmd = ReactiveCommand.CreateFromTask(async () =>
+        ToggleProxyCmd = ReactiveCommand.Create(() =>
         {
             if (IsProxyRunning)
             {
@@ -46,20 +51,16 @@ public class MainWindowViewModel : ReactiveObject
             }
 
             ToggleServiceButtonText = IsProxyRunning ? "关闭" : "启动";
-
-            await Task.CompletedTask;
         });
 
-        ApplyProxyConfigCmd = ReactiveCommand.CreateFromTask(async () =>
+        ApplyProxyConfigCmd = ReactiveCommand.Create(() =>
         {
             ApplyProxyConfig();
-            await Task.CompletedTask;
         });
 
-        SaveRuleCmd = ReactiveCommand.CreateFromTask(async () =>
+        SaveRuleCmd = ReactiveCommand.Create(() =>
         {
             SaveRule();
-            await Task.CompletedTask;
         });
 
         try
@@ -67,6 +68,11 @@ public class MainWindowViewModel : ReactiveObject
             ProxyConfigSource = _proxyConfigStorage.LoadProxyConfig();
             var savedRules = _proxyConfigStorage.LoadRules();
             RuleProcessName = string.Join(',', savedRules.Select(r => r.ProcessName).Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.OrdinalIgnoreCase));
+            var savedProtocol = savedRules.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Protocol))?.Protocol;
+            if (!string.IsNullOrWhiteSpace(savedProtocol))
+            {
+                RuleProtocol = savedProtocol;
+            }
 
             ProxyService = new NetBridgeService();
             ProxyService.LogReceived += msg =>
@@ -105,7 +111,11 @@ public class MainWindowViewModel : ReactiveObject
         try
         {
             ApplyProxyConfig();
-            ProxyService?.Start();
+            if (ProxyService?.Start() != true)
+            {
+                AppendLog("代理服务启动失败。");
+                return false;
+            }
             IsProxyRunning = true;
             AppendLog("代理服务已启动。");
         }
@@ -128,7 +138,11 @@ public class MainWindowViewModel : ReactiveObject
             return false;
         }
 
-        ProxyService?.Stop();
+        if (ProxyService?.Stop() == false)
+        {
+            AppendLog("代理服务停止失败。");
+            return false;
+        }
         IsProxyRunning = false;
         AppendLog("代理服务已停止。");
         return true;
@@ -174,43 +188,55 @@ public class MainWindowViewModel : ReactiveObject
             return;
         }
 
-        var existingRules = _proxyConfigStorage.LoadRules();
-        foreach (var oldRule in existingRules)
-        {
-            ProxyService.DeleteRule(oldRule.RuleId);
-        }
-
         var processNames = ParseProcessNames(RuleProcessName);
         if (processNames.Count == 0)
         {
+            var oldRules = _proxyConfigStorage.LoadRules();
+            foreach (var oldRule in oldRules)
+            {
+                ProxyService.DeleteRule(oldRule.RuleId);
+            }
             _proxyConfigStorage.SaveRules([]);
             RuleProcessName = string.Empty;
             AppendLog("已清空演示规则。");
             return;
         }
 
-        var savedRules = new List<RuleConfig>();
+        var newRules = new List<RuleConfig>();
         foreach (var processName in processNames)
         {
-            var newRuleId = ProxyService.AddRule(processName, "*", "*", "*", "PROXY");
-            savedRules.Add(new RuleConfig
+            var newRuleId = ProxyService.AddRule(processName, "*", "*", RuleProtocol, "PROXY");
+            if (newRuleId == 0)
+            {
+                AppendLog($"添加规则失败：{processName}，已添加的规则将保留。");
+                continue;
+            }
+            newRules.Add(new RuleConfig
             {
                 RuleId = newRuleId,
                 ProcessName = processName,
                 TargetHosts = "*",
                 TargetPorts = "*",
-                Protocol = "*",
+                Protocol = RuleProtocol,
                 Action = "PROXY",
                 ProxyConfigId = 0
             });
         }
 
-        _proxyConfigStorage.SaveRules(savedRules);
-        RuleProcessName = string.Join(',', savedRules.Select(r => r.ProcessName));
-        AppendLog($"已保存演示规则，共 {savedRules.Count} 条。");
+        if (newRules.Count > 0)
+        {
+            var oldRules = _proxyConfigStorage.LoadRules();
+            foreach (var oldRule in oldRules)
+            {
+                ProxyService.DeleteRule(oldRule.RuleId);
+            }
+            _proxyConfigStorage.SaveRules(newRules);
+            RuleProcessName = string.Join(',', newRules.Select(r => r.ProcessName));
+            AppendLog($"已保存演示规则，共 {newRules.Count} 条。");
+        }
     }
 
-    private static List<string> ParseProcessNames(string input)
+    internal static List<string> ParseProcessNames(string input)
     {
         return [.. input
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)

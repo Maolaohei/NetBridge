@@ -5,10 +5,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:resx="clr-namespace:ServiceLib.Resx;assembly=ServiceLib"
     xmlns:view="using:NetBridge.Desktop.Views"
     xmlns:vm="using:NetBridge.Desktop.ViewModels"
-    xmlns:vms="clr-namespace:ServiceLib.ViewModels;assembly=ServiceLib"
     Title="NetBridge.Desktop"
     Width="1200"
     Height="800"
@@ -88,7 +86,8 @@
                     <TextBox
                         x:Name="txtProxyPassword"
                         Grid.Row="0"
-                        Grid.Column="9" />
+                        Grid.Column="9"
+                        PasswordChar="*" />
 
                     <Button
                         x:Name="btnApplyProxyConfig"
@@ -108,8 +107,20 @@
                         x:Name="txtRuleProcessName"
                         Grid.Row="2"
                         Grid.Column="1"
-                        Grid.ColumnSpan="7"
+                        Grid.ColumnSpan="5"
                         Classes="TextArea" />
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="6"
+                        VerticalAlignment="Center"
+                        Text="协议" />
+                    <ComboBox
+                        x:Name="cmbRuleProtocol"
+                        Grid.Row="2"
+                        Grid.Column="7"
+                        Width="100"
+                        ItemsSource="{Binding ProtocolOptions}"
+                        SelectedItem="{Binding RuleProtocol}" />
                     <Button
                         x:Name="btnSaveRule"
                         Grid.Row="2"

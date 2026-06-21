@@ -6,4 +6,5 @@
   </Folder>
   <Project Path="NetBridge.Desktop/NetBridge.Desktop.csproj" />
   <Project Path="NetBridgeLib/NetBridgeLib.csproj" />
+  <Project Path="NetBridgeLib.Tests/NetBridgeLib.Tests.csproj" />
 </Solution>

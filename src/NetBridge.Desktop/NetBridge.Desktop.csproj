@@ -10,6 +10,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<InternalsVisibleTo Include="NetBridgeLib.Tests" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="Avalonia.Desktop" />
 		<PackageReference Include="DialogHost.Avalonia" />
 		<PackageReference Include="ReactiveUI.Avalonia" />

@@ -4,10 +4,12 @@ namespace NetBridgeLib.Services;
 
 public class NetBridgeService : IDisposable
 {
-    private readonly NetBridgeNative.LogCallback? _logCallback;
-    private readonly NetBridgeNative.ConnectionCallback? _connectionCallback;
-    private bool _isRunning;
-    private bool _disposed;
+    private static NetBridgeNative.LogCallback? s_staticLogHandler;
+    private static NetBridgeNative.ConnectionCallback? s_staticConnectionHandler;
+    private static NetBridgeService? s_instance;
+
+    private volatile bool _isRunning;
+    private volatile bool _disposed;
 
     public event Action<string>? LogReceived;
 
@@ -17,38 +19,39 @@ public class NetBridgeService : IDisposable
 
     public NetBridgeService()
     {
-        _logCallback = OnLogReceived;
-        _connectionCallback = OnConnectionReceived;
+        s_instance = this;
+        s_staticLogHandler = StaticLogHandler;
+        s_staticConnectionHandler = StaticConnectionHandler;
 
-        NetBridgeNative.ProxyBridge_SetLogCallback(_logCallback);
-        NetBridgeNative.ProxyBridge_SetConnectionCallback(_connectionCallback);
+        NetBridgeNative.ProxyBridge_SetLogCallback(s_staticLogHandler);
+        NetBridgeNative.ProxyBridge_SetConnectionCallback(s_staticConnectionHandler);
     }
 
-    private void OnLogReceived(string message)
+    private static void StaticLogHandler(string message)
     {
-        if (_disposed) return;
+        var self = s_instance;
+        if (self is null || self._disposed) return;
 
         try
         {
-            LogReceived?.Invoke(message);
+            self.LogReceived?.Invoke(message);
         }
         catch
         {
-            // Callback may be on non-UI thread, subscriber handles marshaling
         }
     }
 
-    private void OnConnectionReceived(string processName, uint pid, string destIp, ushort destPort, string proxyInfo)
+    private static void StaticConnectionHandler(string processName, uint pid, string destIp, ushort destPort, string proxyInfo)
     {
-        if (_disposed) return;
+        var self = s_instance;
+        if (self is null || self._disposed) return;
 
         try
         {
-            ConnectionReceived?.Invoke(processName, pid, destIp, destPort, proxyInfo);
+            self.ConnectionReceived?.Invoke(processName, pid, destIp, destPort, proxyInfo);
         }
         catch
         {
-            // Callback may be on non-UI thread, subscriber handles marshaling
         }
     }
 
@@ -76,14 +79,14 @@ public class NetBridgeService : IDisposable
 
     public uint AddProxyConfig(string type, string ip, ushort port, string username, string password)
     {
-        var proxyType = type.Equals("HTTP", StringComparison.CurrentCultureIgnoreCase) ? NetProxyType.HTTP : NetProxyType.SOCKS5;
+        var proxyType = type.Equals("HTTP", StringComparison.OrdinalIgnoreCase) ? NetProxyType.HTTP : NetProxyType.SOCKS5;
 
         return NetBridgeNative.ProxyBridge_AddProxyConfig(proxyType, ip, port, username, password);
     }
 
     public bool EditProxyConfig(uint configId, string type, string ip, ushort port, string username, string password)
     {
-        var proxyType = type.Equals("HTTP", StringComparison.CurrentCultureIgnoreCase) ? NetProxyType.HTTP : NetProxyType.SOCKS5;
+        var proxyType = type.Equals("HTTP", StringComparison.OrdinalIgnoreCase) ? NetProxyType.HTTP : NetProxyType.SOCKS5;
 
         return NetBridgeNative.ProxyBridge_EditProxyConfig(configId, proxyType, ip, port, username, password);
     }
@@ -96,7 +99,11 @@ public class NetBridgeService : IDisposable
     public string TestProxyConfig(uint configId, string targetHost, ushort targetPort)
     {
         var buffer = new System.Text.StringBuilder(4096);
-        NetBridgeNative.ProxyBridge_TestProxyConfig(configId, targetHost, targetPort, buffer, (UIntPtr)buffer.Capacity);
+        var result = NetBridgeNative.ProxyBridge_TestProxyConfig(configId, targetHost, targetPort, buffer, (UIntPtr)buffer.Capacity);
+        if (result < 0)
+        {
+            return $"Test failed with error code: {result}";
+        }
         return buffer.ToString();
     }
 
@@ -156,23 +163,25 @@ public class NetBridgeService : IDisposable
         NetBridgeNative.ProxyBridge_SetTrafficLoggingEnabled(enable);
     }
 
-    private static NetRuleAction ParseRuleAction(string? action)
+    internal static NetRuleAction ParseRuleAction(string? action)
     {
         return action?.ToUpperInvariant() switch
         {
             "DIRECT" => NetRuleAction.DIRECT,
             "BLOCK" => NetRuleAction.BLOCK,
-            _ => NetRuleAction.PROXY
+            "PROXY" => NetRuleAction.PROXY,
+            _ => throw new ArgumentException($"Unknown rule action: '{action}'", nameof(action))
         };
     }
 
-    private static NetRuleProtocol ParseRuleProtocol(string? protocol)
+    internal static NetRuleProtocol ParseRuleProtocol(string? protocol)
     {
         return protocol?.ToUpperInvariant() switch
         {
+            "TCP" => NetRuleProtocol.TCP,
             "UDP" => NetRuleProtocol.UDP,
             "BOTH" or "TCP+UDP" => NetRuleProtocol.BOTH,
-            _ => NetRuleProtocol.TCP
+            _ => throw new ArgumentException($"Unknown rule protocol: '{protocol}'", nameof(protocol))
         };
     }
 
@@ -188,6 +197,11 @@ public class NetBridgeService : IDisposable
 
         LogReceived = null;
         ConnectionReceived = null;
+
+        if (s_instance == this)
+        {
+            s_instance = null;
+        }
 
         GC.SuppressFinalize(this);
     }
