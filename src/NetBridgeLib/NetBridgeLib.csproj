@@ -6,6 +6,7 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="NetBridgeLib.Tests" />
+        <InternalsVisibleTo Include="NetBridgeLib.Benchmarks" />
     </ItemGroup>
 
     <ItemGroup>

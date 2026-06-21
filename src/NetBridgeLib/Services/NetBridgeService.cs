@@ -9,6 +9,7 @@ public class NetBridgeService : IDisposable
     private static NetBridgeService? s_instance;
 
     private volatile bool _isRunning;
+    private volatile bool _nativeAllocated;
     private volatile bool _disposed;
 
     public event Action<string>? LogReceived;
@@ -62,19 +63,38 @@ public class NetBridgeService : IDisposable
             return true;
         }
 
-        _isRunning = NetBridgeNative.ProxyBridge_Start();
-        return _isRunning;
-    }
-
-    public bool Stop()
-    {
-        if (!_isRunning)
+        if (_nativeAllocated)
         {
-            return true;
+            try
+            {
+                NetBridgeNative.ProxyBridge_Stop();
+            }
+            catch
+            {
+            }
+            _nativeAllocated = false;
         }
 
-        _isRunning = !NetBridgeNative.ProxyBridge_Stop();
-        return !_isRunning;
+        var ok = NetBridgeNative.ProxyBridge_Start();
+        _isRunning = ok;
+        _nativeAllocated = ok;
+        return ok;
+    }
+
+    public void Stop()
+    {
+        if (_nativeAllocated)
+        {
+            try
+            {
+                NetBridgeNative.ProxyBridge_Stop();
+            }
+            catch
+            {
+            }
+        }
+        _isRunning = false;
+        _nativeAllocated = false;
     }
 
     public uint AddProxyConfig(string type, string ip, ushort port, string username, string password)
@@ -190,10 +210,7 @@ public class NetBridgeService : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        if (_isRunning)
-        {
-            Stop();
-        }
+        Stop();
 
         LogReceived = null;
         ConnectionReceived = null;
