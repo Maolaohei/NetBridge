@@ -8,6 +8,7 @@ public class NetBridgeService : IDisposable
     private static NetBridgeNative.ConnectionCallback? s_staticConnectionHandler;
     private static NetBridgeService? s_instance;
 
+    private readonly object _lock = new();
     private volatile bool _isRunning;
     private volatile bool _nativeAllocated;
     private volatile bool _disposed;
@@ -18,6 +19,40 @@ public class NetBridgeService : IDisposable
 
     public bool IsRunning => _isRunning;
 
+    /// <summary>
+    /// Gets the native DLL version string (e.g. "1.0.0"). Returns "unknown" if unavailable.
+    /// </summary>
+    public static string GetNativeVersion()
+    {
+        try
+        {
+            if (!NetBridgeNative.IsDllLoaded) return "not loaded";
+            var ver = NetBridgeNative.ProxyBridge_GetVersion();
+            if (ver == 0) return "legacy";
+            return $"{(ver >> 16) & 0xFF}.{(ver >> 8) & 0xFF}.{ver & 0xFF}";
+        }
+        catch
+        {
+            return "unknown";
+        }
+    }
+
+    /// <summary>
+    /// Gets the number of active proxied connections. Returns 0 if unavailable.
+    /// </summary>
+    public static uint GetConnectionCount()
+    {
+        try
+        {
+            if (!NetBridgeNative.IsDllLoaded) return 0;
+            return NetBridgeNative.ProxyBridge_GetConnectionCount();
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
     public NetBridgeService()
     {
         s_instance = this;
@@ -26,6 +61,11 @@ public class NetBridgeService : IDisposable
 
         NetBridgeNative.ProxyBridge_SetLogCallback(s_staticLogHandler);
         NetBridgeNative.ProxyBridge_SetConnectionCallback(s_staticConnectionHandler);
+    }
+
+    ~NetBridgeService()
+    {
+        Dispose(disposing: false);
     }
 
     private static void StaticLogHandler(string message)
@@ -58,43 +98,72 @@ public class NetBridgeService : IDisposable
 
     public bool Start()
     {
-        if (_isRunning)
+        lock (_lock)
         {
-            return true;
-        }
+            if (_disposed) return false;
+            if (_isRunning) return true;
 
-        if (_nativeAllocated)
-        {
-            try
+            if (_nativeAllocated)
             {
-                NetBridgeNative.ProxyBridge_Stop();
+                try
+                {
+                    NetBridgeNative.ProxyBridge_Stop();
+                }
+                catch
+                {
+                }
+                _nativeAllocated = false;
             }
-            catch
-            {
-            }
-            _nativeAllocated = false;
-        }
 
-        var ok = NetBridgeNative.ProxyBridge_Start();
-        _isRunning = ok;
-        _nativeAllocated = ok;
-        return ok;
+            var ok = NetBridgeNative.ProxyBridge_Start();
+            _isRunning = ok;
+            _nativeAllocated = ok;
+            return ok;
+        }
     }
 
     public void Stop()
     {
-        if (_nativeAllocated)
+        lock (_lock)
         {
-            try
+            if (_nativeAllocated)
             {
-                NetBridgeNative.ProxyBridge_Stop();
+                try
+                {
+                    // Run ProxyBridge_Stop in a thread with timeout to prevent hangs
+                    var stopTask = Task.Run(() =>
+                    {
+                        try { NetBridgeNative.ProxyBridge_Stop(); }
+                        catch { }
+                    });
+                    if (!stopTask.Wait(2000))
+                    {
+                        // Stop() timed out — don't block, mark as stopped
+                        // The native handle will be released on process exit
+                    }
+                }
+                catch
+                {
+                }
             }
-            catch
-            {
-            }
+            _isRunning = false;
+            _nativeAllocated = false;
         }
-        _isRunning = false;
-        _nativeAllocated = false;
+    }
+
+    /// <summary>
+    /// Force-stop: immediately mark as stopped without waiting for native cleanup.
+    /// Used when Stop() times out and we need to exit.
+    /// </summary>
+    public void ForceStop()
+    {
+        lock (_lock)
+        {
+            _isRunning = false;
+            _nativeAllocated = false;
+            // Don't call ProxyBridge_Stop here — it may be the one hanging.
+            // The handle will be released when the DLL is unloaded on process exit.
+        }
     }
 
     public uint AddProxyConfig(string type, string ip, ushort port, string username, string password)
@@ -207,19 +276,31 @@ public class NetBridgeService : IDisposable
 
     public void Dispose()
     {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
         if (_disposed) return;
-        _disposed = true;
 
-        Stop();
-
-        LogReceived = null;
-        ConnectionReceived = null;
-
-        if (s_instance == this)
+        lock (_lock)
         {
-            s_instance = null;
+            if (_disposed) return;
+            _disposed = true;
         }
 
-        GC.SuppressFinalize(this);
+        if (disposing)
+        {
+            LogReceived = null;
+            ConnectionReceived = null;
+
+            if (s_instance == this)
+            {
+                s_instance = null;
+            }
+        }
+
+        Stop();
     }
 }

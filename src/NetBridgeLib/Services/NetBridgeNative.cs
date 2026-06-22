@@ -6,6 +6,7 @@ namespace NetBridgeLib.Services;
 public static class NetBridgeNative
 {
     private const string DllName = "ProxyBridgeCore.dll";
+    private static bool s_dllLoaded;
 
     static NetBridgeNative()
     {
@@ -18,6 +19,7 @@ public static class NetBridgeNative
                 if (File.Exists(dllPath))
                 {
                     NativeLibrary.Load(dllPath);
+                    s_dllLoaded = true;
                 }
                 else
                 {
@@ -30,6 +32,11 @@ public static class NetBridgeNative
             }
         }
     }
+
+    /// <summary>
+    /// Returns true if the native DLL was loaded successfully.
+    /// </summary>
+    public static bool IsDllLoaded => s_dllLoaded;
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void LogCallback([MarshalAs(UnmanagedType.LPStr)] string message);
@@ -133,4 +140,31 @@ public static class NetBridgeNative
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool ProxyBridge_Stop();
+
+    // v2.1.0 Phase 2: Version and diagnostics APIs
+
+    /// <summary>
+    /// Returns the native DLL version as a packed integer (major&lt;&lt;16 | minor&lt;&lt;8 | patch).
+    /// Returns 0 if the function is not available (old DLL version).
+    /// </summary>
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern uint ProxyBridge_GetVersion();
+
+    /// <summary>
+    /// Returns the last error code from the native layer.
+    /// </summary>
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern int ProxyBridge_GetLastError();
+
+    /// <summary>
+    /// Returns the number of active connections being proxied.
+    /// </summary>
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern uint ProxyBridge_GetConnectionCount();
+
+    /// <summary>
+    /// Returns the number of active UDP sessions.
+    /// </summary>
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern uint ProxyBridge_GetSessionCount();
 }
