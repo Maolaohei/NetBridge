@@ -252,6 +252,12 @@ public class NetBridgeService : IDisposable
         NetBridgeNative.ProxyBridge_SetTrafficLoggingEnabled(enable);
     }
 
+    public static void SetRelayPort(ushort port)
+    {
+        if (!NetBridgeNative.IsDllLoaded) return;
+        NetBridgeNative.ProxyBridge_SetRelayPort(port);
+    }
+
     internal static NetRuleAction ParseRuleAction(string? action)
     {
         return action?.ToUpperInvariant() switch

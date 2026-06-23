@@ -167,4 +167,10 @@ public static class NetBridgeNative
     /// </summary>
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     public static extern uint ProxyBridge_GetSessionCount();
+
+    /// <summary>
+    /// Set the relay TCP port for NetBridge protocol (Bridge mode).
+    /// </summary>
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void ProxyBridge_SetRelayPort(ushort port);
 }
