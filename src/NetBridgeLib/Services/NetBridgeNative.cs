@@ -173,4 +173,7 @@ public static class NetBridgeNative
     /// </summary>
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     public static extern void ProxyBridge_SetRelayPort(ushort port);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void ProxyBridge_SetUseNetBridgeProtocol([MarshalAs(UnmanagedType.Bool)] bool enable);
 }

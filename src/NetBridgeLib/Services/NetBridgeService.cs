@@ -239,7 +239,9 @@ public class NetBridgeService : IDisposable
 
     public void SetDnsViaProxy(bool enable)
     {
-        NetBridgeNative.ProxyBridge_SetDnsViaProxy(enable);
+        if (!NetBridgeNative.IsDllLoaded) return;
+        try { NetBridgeNative.ProxyBridge_SetDnsViaProxy(enable); }
+        catch (EntryPointNotFoundException) { /* older DLL without DNS export */ }
     }
 
     public void SetLocalhostViaProxy(bool enable)
@@ -256,6 +258,13 @@ public class NetBridgeService : IDisposable
     {
         if (!NetBridgeNative.IsDllLoaded) return;
         NetBridgeNative.ProxyBridge_SetRelayPort(port);
+    }
+
+    public static void SetUseNetBridgeProtocol(bool enable)
+    {
+        if (!NetBridgeNative.IsDllLoaded) return;
+        try { NetBridgeNative.ProxyBridge_SetUseNetBridgeProtocol(enable); }
+        catch (EntryPointNotFoundException) { /* older DLL */ }
     }
 
     internal static NetRuleAction ParseRuleAction(string? action)
